@@ -1,4 +1,6 @@
-import { Revenue } from "@/app/lib/definitions"
+"serict client"
+
+import { fetchRevenue } from "@/app/lib/data"
 import { generateYAxis } from "@/app/lib/utils"
 import { lusitana } from "@/app/ui/fonts"
 import { CalendarIcon } from "@heroicons/react/24/outline"
@@ -9,11 +11,9 @@ import { CalendarIcon } from "@heroicons/react/24/outline"
 // https://www.chartjs.org/
 // https://airbnb.io/visx/
 
-export default async function RevenueChart({
-  revenue,
-}: {
-  revenue: Revenue[]
-}) {
+export default async function RevenueChart() {
+  const revenue = await fetchRevenue() // Fetch data inside the component
+
   const chartHeight = 350
   // NOTE: Uncomment this code in Chapter 7
 
