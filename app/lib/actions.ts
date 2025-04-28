@@ -1,3 +1,5 @@
+// データの変更操作を行うための関数を定義します
+
 "use server"
 
 import { signIn } from "@/auth"

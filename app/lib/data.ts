@@ -1,27 +1,40 @@
+//データの取得と整形を行う関数を定義します
+
+import { createClient } from "@supabase/supabase-js"
 import postgres from "postgres"
+import { Database } from "../../database.types"
 import {
   CustomerField,
   CustomersTableType,
   InvoiceForm,
   InvoicesTable,
   LatestInvoiceRaw,
-  Revenue,
 } from "./definitions"
-import { createClient } from "./supabase/server"
 import { formatCurrency } from "./utils"
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" })
 
 export async function fetchRevenue() {
   try {
+    const supabase = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
     console.log("Fetching revenue data...")
     await new Promise((resolve) => setTimeout(resolve, 3000))
 
-    const data = await sql<Revenue[]>`SELECT * FROM revenue`
+    const { data, error, status } = await supabase.from("revenue").select()
 
-    // console.log('Data fetch completed after 3 seconds.');
+    if (error && status !== 406) {
+      console.log(error)
+      throw error
+    }
+    if (!data) {
+      throw error
+    }
 
     return data
   } catch (error) {
@@ -61,7 +74,10 @@ export async function fetchCardData() {
     //      SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
     //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
     //      FROM invoices`
-    const supabase = await createClient()
+    const supabase = await createClient(
+      process.env.SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     const invoiceCountPromise = await supabase
       .from("invoices")
@@ -87,10 +103,7 @@ export async function fetchCardData() {
       invoiceStatusPainPromise,
       invoiceStatusPendingPromise,
     ])
-    console.log("ここから")
-    console.log(data[2].data)
-    console.log(data[3].data)
-    console.log("ここまで")
+
     // エラーチェック (各Promiseの結果を確認)
     if (data[0].error) throw data[0].error
     if (data[1].error) throw data[1].error
