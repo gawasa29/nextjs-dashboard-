@@ -118,7 +118,13 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string) {
-  await sql`DELETE FROM invoices WHERE id = ${id}`
+  const supabase = await createClient()
+  const response = await supabase.from("invoices").delete().eq("id", id)
+
+  if (response.error) {
+    console.error("Database Error:", response.error)
+  }
+
   revalidatePath("/dashboard/invoices")
 }
 
