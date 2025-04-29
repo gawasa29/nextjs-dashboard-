@@ -40,10 +40,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/")
+    !user && // ユーザーがログインしていない（認証されていない）、かつ
+    !request.nextUrl.pathname.startsWith("/login") && // アクセスしようとしているページのパスが "/login" で始まらない、かつ
+    request.nextUrl.pathname !== "/" // アクセスしようとしているページのパスがルートパス "/" そのものではない場合
   ) {
+    console.log("ログインできていないため、ルート画面にリダイレクトします")
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()
     url.pathname = "/"
