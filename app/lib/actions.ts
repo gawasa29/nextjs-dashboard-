@@ -59,10 +59,17 @@ export async function createInvoice(prevState: State, formData: FormData) {
 
   // Insert data into the database
   try {
-    await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-    `
+    const supabase = await createClient()
+    const { error } = await supabase.from("invoices").insert({
+      customer_id: customerId,
+      amount: amountInCents,
+      status: status,
+      date: date,
+    })
+
+    if (error) {
+      console.error("Database Error:", error)
+    }
   } catch (error) {
     // If a database error occurs, return a more specific error.
     return {
@@ -98,9 +105,6 @@ export async function updateInvoice(id: string, formData: FormData) {
       })
       .eq("id", id)
 
-    if (error) {
-      console.error("Database Error:", error)
-    }
     if (error) {
       console.error("Database Error:", error)
     }
