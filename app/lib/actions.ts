@@ -88,11 +88,22 @@ export async function updateInvoice(id: string, formData: FormData) {
   const amountInCents = amount * 100
 
   try {
-    await sql`
-        UPDATE invoices
-        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-        WHERE id = ${id}
-      `
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        customer_id: customerId,
+        amount: amountInCents,
+        status: status,
+      })
+      .eq("id", id)
+
+    if (error) {
+      console.error("Database Error:", error)
+    }
+    if (error) {
+      console.error("Database Error:", error)
+    }
   } catch (error) {
     // We'll log the error to the console for now
     console.error(error)
