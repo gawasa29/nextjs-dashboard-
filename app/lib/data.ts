@@ -1,6 +1,5 @@
 //データの取得と整形を行う関数を定義します
 
-import { createClient } from "@supabase/supabase-js"
 import postgres from "postgres"
 import { Database } from "../../database.types"
 import {
@@ -10,16 +9,14 @@ import {
   InvoicesTable,
   LatestInvoiceRaw,
 } from "./definitions"
+import { createClient } from "./supabase/server"
 import { formatCurrency } from "./utils"
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" })
 
 export async function fetchRevenue() {
   try {
-    const supabase = await createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = await createClient<Database>()
 
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
@@ -74,10 +71,7 @@ export async function fetchCardData() {
     //      SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
     //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
     //      FROM invoices`
-    const supabase = await createClient(
-      process.env.SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = await createClient()
 
     const invoiceCountPromise = await supabase
       .from("invoices")
