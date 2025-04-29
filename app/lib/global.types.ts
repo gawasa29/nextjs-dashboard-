@@ -1,4 +1,4 @@
-import { Database } from "./database.types"
+import { Database } from "../../database.types"
 /*
 https://stackoverflow.com/questions/77520175/how-to-use-types-provided-by-supabase-in-my-typescript-project
 */

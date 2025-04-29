@@ -1,4 +1,4 @@
-import { Revenue } from "@/global.types"
+import { Revenue } from "@/app/lib/global.types"
 import { redirect } from "next/navigation"
 
 /**
