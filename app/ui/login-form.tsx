@@ -1,6 +1,6 @@
 "use client"
 
-import { authenticate } from "@/app/lib/actions"
+import { signInAction } from "@/app/lib/actions"
 import { Button } from "@/app/ui/button"
 import { lusitana } from "@/app/ui/fonts"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
@@ -16,7 +16,7 @@ export default function LoginForm() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
   const [errorMessage, formAction, isPending] = useActionState(
-    authenticate,
+    signInAction,
     undefined
   )
 

@@ -1,13 +1,12 @@
+// データの変更操作を行うための関数を定義します
+
 "use server"
 
-import { signIn } from "@/auth"
-import { AuthError } from "next-auth"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import postgres from "postgres"
 import { z } from "zod"
-
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" })
+import { createClient } from "./supabase/server"
+import { encodedRedirect } from "./utils"
 
 const FormSchema = z.object({
   id: z.string(),
@@ -57,10 +56,17 @@ export async function createInvoice(prevState: State, formData: FormData) {
 
   // Insert data into the database
   try {
-    await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-    `
+    const supabase = await createClient()
+    const { error } = await supabase.from("invoices").insert({
+      customer_id: customerId,
+      amount: amountInCents,
+      status: status,
+      date: date,
+    })
+
+    if (error) {
+      console.error("Database Error:", error)
+    }
   } catch (error) {
     // If a database error occurs, return a more specific error.
     return {
@@ -86,11 +92,19 @@ export async function updateInvoice(id: string, formData: FormData) {
   const amountInCents = amount * 100
 
   try {
-    await sql`
-        UPDATE invoices
-        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-        WHERE id = ${id}
-      `
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        customer_id: customerId,
+        amount: amountInCents,
+        status: status,
+      })
+      .eq("id", id)
+
+    if (error) {
+      console.error("Database Error:", error)
+    }
   } catch (error) {
     // We'll log the error to the console for now
     console.error(error)
@@ -101,25 +115,42 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string) {
-  await sql`DELETE FROM invoices WHERE id = ${id}`
+  const supabase = await createClient()
+  const response = await supabase.from("invoices").delete().eq("id", id)
+
+  if (response.error) {
+    console.error("Database Error:", response.error)
+  }
+
   revalidatePath("/dashboard/invoices")
 }
 
-export async function authenticate(
+export async function signInAction(
   prevState: string | undefined,
   formData: FormData
 ) {
-  try {
-    await signIn("credentials", formData)
-  } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return "Invalid credentials."
-        default:
-          return "Something went wrong."
-      }
-    }
-    throw error
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  console.log("User:", user)
+  if (error) {
+    console.error("Login Error:", error)
+    return encodedRedirect("error", "/login", error.message)
   }
+
+  return redirect("/dashboard")
+}
+
+export async function signOutAction() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  return redirect("/")
 }

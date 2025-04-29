@@ -1,26 +1,37 @@
+//データの取得と整形を行う関数を定義します
+
 import postgres from "postgres"
+import { Database } from "../../database.types"
 import {
   CustomerField,
   CustomersTableType,
   InvoiceForm,
   InvoicesTable,
   LatestInvoiceRaw,
-  Revenue,
 } from "./definitions"
+import { createClient } from "./supabase/server"
 import { formatCurrency } from "./utils"
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" })
 
 export async function fetchRevenue() {
   try {
+    const supabase = await createClient<Database>()
+
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
     console.log("Fetching revenue data...")
     await new Promise((resolve) => setTimeout(resolve, 3000))
 
-    const data = await sql<Revenue[]>`SELECT * FROM revenue`
+    const { data, error, status } = await supabase.from("revenue").select()
 
-    // console.log('Data fetch completed after 3 seconds.');
+    if (error && status !== 406) {
+      console.log(error)
+      throw error
+    }
+    if (!data) {
+      throw error
+    }
 
     return data
   } catch (error) {
@@ -54,23 +65,63 @@ export async function fetchCardData() {
     // You can probably combine these into a single SQL query
     // However, we are intentionally splitting them to demonstrate
     // how to initialize multiple queries in parallel with JS.
-    const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`
-    const customerCountPromise = sql`SELECT COUNT(*) FROM customers`
-    const invoiceStatusPromise = sql`SELECT
-         SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
-         SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
-         FROM invoices`
+    // const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`
+    // const customerCountPromise = sql`SELECT COUNT(*) FROM customers`
+    // const invoiceStatusPromise = sql`SELECT
+    //      SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
+    //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
+    //      FROM invoices`
+    const supabase = await createClient()
+
+    const invoiceCountPromise = await supabase
+      .from("invoices")
+      .select("*", { count: "exact", head: true })
+
+    const customerCountPromise = await supabase
+      .from("customers")
+      .select("*", { count: "exact", head: true })
+
+    const invoiceStatusPainPromise = await supabase
+      .from("invoices")
+      .select("status, amount")
+      .in("status", ["paid"])
+
+    const invoiceStatusPendingPromise = await supabase
+      .from("invoices")
+      .select("status, amount")
+      .in("status", ["pending"])
 
     const data = await Promise.all([
       invoiceCountPromise,
       customerCountPromise,
-      invoiceStatusPromise,
+      invoiceStatusPainPromise,
+      invoiceStatusPendingPromise,
     ])
 
-    const numberOfInvoices = Number(data[0][0].count ?? "0")
-    const numberOfCustomers = Number(data[1][0].count ?? "0")
-    const totalPaidInvoices = formatCurrency(data[2][0].paid ?? "0")
-    const totalPendingInvoices = formatCurrency(data[2][0].pending ?? "0")
+    // エラーチェック (各Promiseの結果を確認)
+    if (data[0].error) throw data[0].error
+    if (data[1].error) throw data[1].error
+    if (data[2].error) throw data[2].error
+    if (data[3].error) throw data[3].error
+
+    // 支払い済み請求書の合計金額を計算
+    // data[2].data は { status: 'paid', amount: xxx } の配列
+    const totalPaidAmount = data[2].data.reduce(
+      (sum, data) => sum + data.amount,
+      0
+    )
+
+    // 保留中請求書の合計金額を計算
+    // data[3].data は { status: 'pending', amount: yyy } の配列
+    const totalPendingAmount = data[3].data.reduce(
+      (sum, data) => sum + data.amount,
+      0
+    )
+
+    const numberOfInvoices = Number(data[0].count ?? "0")
+    const numberOfCustomers = Number(data[1].count ?? "0")
+    const totalPaidInvoices = formatCurrency(totalPaidAmount ?? "0")
+    const totalPendingInvoices = formatCurrency(totalPendingAmount ?? "0")
 
     return {
       numberOfCustomers,
