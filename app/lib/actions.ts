@@ -2,12 +2,12 @@
 
 "use server"
 
-import { signIn } from "@/auth"
-import { AuthError } from "next-auth"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import postgres from "postgres"
 import { z } from "zod"
+import { createClient } from "./supabase/server"
+import { encodedRedirect } from "./utils"
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" })
 
@@ -107,21 +107,26 @@ export async function deleteInvoice(id: string) {
   revalidatePath("/dashboard/invoices")
 }
 
-export async function authenticate(
+export async function signInAction(
   prevState: string | undefined,
   formData: FormData
 ) {
-  try {
-    await signIn("credentials", formData)
-  } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return "Invalid credentials."
-        default:
-          return "Something went wrong."
-      }
-    }
-    throw error
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  console.log("User:", user)
+  if (error) {
+    console.error("Login Error:", error)
+    return encodedRedirect("error", "/login", error.message)
   }
+
+  return redirect("/dashboard")
 }
